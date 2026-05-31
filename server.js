@@ -4,7 +4,6 @@ const axios = require("axios");
 const cheerio = require("cheerio");
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
-
 const express = require("express");
 const cors = require("cors");
 const Groq = require("groq-sdk");
@@ -45,17 +44,26 @@ const userSchema = new mongoose.Schema(
     fullName: { type: String, required: true },
     age: { type: String, default: "" },
     strand: { type: String, default: "" },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     password: { type: String, required: true },
     role: { type: String, enum: ["student", "admin"], default: "student" },
+
     xp: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
+
     scores: {
       reading: { type: Number, default: 0 },
       quizzes: { type: Number, default: 0 },
       writing: { type: Number, default: 0 },
       summaries: { type: Number, default: 0 },
     },
+
     achievements: [
       {
         title: String,
@@ -65,6 +73,7 @@ const userSchema = new mongoose.Schema(
         earnedAt: { type: Date, default: Date.now },
       },
     ],
+
     history: [
       {
         title: String,
@@ -74,6 +83,7 @@ const userSchema = new mongoose.Schema(
         date: { type: Date, default: Date.now },
       },
     ],
+
     favorites: [
       {
         title: String,
@@ -89,9 +99,15 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.model("User", userSchema);
 
 const generateToken = (user) =>
-  jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  jwt.sign(
+    {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+    },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 
 const sanitizeUser = (user) => {
   const obj = user.toObject ? user.toObject() : user;
@@ -118,12 +134,59 @@ const buildAchievements = (user) => {
     }
   };
 
-  if ((user.xp || 0) >= 100) addAchievement("100 XP Milestone", "Earned at least 100 XP.", 100, "⭐");
-  if ((user.level || 1) >= 2) addAchievement("Level Up", "Reached Level 2.", 150, "🏅");
-  if ((user.scores?.summaries || 0) >= 1) addAchievement("First Summary", "Generated first summary.", 50, "📝");
-  if ((user.scores?.reading || 0) >= 1) addAchievement("First Reading", "Completed first reading.", 50, "📘");
-  if ((user.scores?.quizzes || 0) >= 50) addAchievement("Quiz Achiever", "Reached 50 quiz points.", 75, "🧠");
-  if ((user.scores?.writing || 0) >= 1) addAchievement("Writing Starter", "Completed first writing.", 50, "✍️");
+  if ((user.xp || 0) >= 100) {
+    addAchievement(
+      "100 XP Milestone",
+      "Earned at least 100 XP from learning activities.",
+      100,
+      "⭐"
+    );
+  }
+
+  if ((user.level || 1) >= 2) {
+    addAchievement(
+      "Level Up",
+      "Reached Level 2 by using READSMART learning tools.",
+      150,
+      "🏅"
+    );
+  }
+
+  if ((user.scores?.summaries || 0) >= 1) {
+    addAchievement(
+      "First Summary",
+      "Generated the first academic summary.",
+      50,
+      "📝"
+    );
+  }
+
+  if ((user.scores?.reading || 0) >= 1) {
+    addAchievement(
+      "First Reading",
+      "Completed the first reading activity.",
+      50,
+      "📘"
+    );
+  }
+
+  if ((user.scores?.quizzes || 0) >= 50) {
+    addAchievement(
+      "Quiz Achiever",
+      "Reached at least 50 quiz points.",
+      75,
+      "🧠"
+    );
+  }
+
+  if ((user.scores?.writing || 0) >= 1) {
+    addAchievement(
+      "Writing Starter",
+      "Completed the first writing activity.",
+      50,
+      "✍️"
+    );
+  }
 
   return newAchievements;
 };
@@ -142,14 +205,18 @@ app.post("/api/auth/register", async (req, res) => {
     const { fullName, age, strand, email, password, role } = req.body;
 
     if (!fullName || !email || !password) {
-      return res.status(400).json({ message: "Full name, email, and password are required." });
+      return res.status(400).json({
+        message: "Full name, email, and password are required.",
+      });
     }
 
     const cleanEmail = email.trim().toLowerCase();
     const existingUser = await User.findOne({ email: cleanEmail });
 
     if (existingUser) {
-      return res.status(400).json({ message: "This email already has an account." });
+      return res.status(400).json({
+        message: "This email already has an account.",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -170,7 +237,11 @@ app.post("/api/auth/register", async (req, res) => {
     });
   } catch (error) {
     console.log("REGISTER ERROR:", error);
-    return res.status(500).json({ message: "Registration failed.", details: error.message });
+
+    return res.status(500).json({
+      message: "Registration failed.",
+      details: error.message,
+    });
   }
 });
 
@@ -179,20 +250,33 @@ app.post("/api/auth/login", async (req, res) => {
     const { email, password, role } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required." });
+      return res.status(400).json({
+        message: "Email and password are required.",
+      });
     }
 
-    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
 
-    if (!user) return res.status(401).json({ message: "Invalid email or password." });
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
 
     if (role && user.role !== role) {
-      return res.status(403).json({ message: "Invalid role for this account." });
+      return res.status(403).json({
+        message: "Invalid role for this account.",
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
-    if (!isMatch) return res.status(401).json({ message: "Invalid email or password." });
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
 
     return res.json({
       message: "Login successful.",
@@ -201,7 +285,11 @@ app.post("/api/auth/login", async (req, res) => {
     });
   } catch (error) {
     console.log("LOGIN ERROR:", error);
-    return res.status(500).json({ message: "Login failed.", details: error.message });
+
+    return res.status(500).json({
+      message: "Login failed.",
+      details: error.message,
+    });
   }
 });
 
@@ -210,12 +298,18 @@ app.post("/api/progress/update", async (req, res) => {
     const { email, activityType, score = 0, historyItem } = req.body;
 
     if (!email || !activityType) {
-      return res.status(400).json({ message: "Email and activity type are required." });
+      return res.status(400).json({
+        message: "Email and activity type are required.",
+      });
     }
 
     const user = await User.findOne({ email: email.trim().toLowerCase() });
 
-    if (!user) return res.status(404).json({ message: "Student not found." });
+    if (!user) {
+      return res.status(404).json({
+        message: "Student not found.",
+      });
+    }
 
     if (activityType === "reading") {
       user.scores.reading += 1;
@@ -249,7 +343,10 @@ app.post("/api/progress/update", async (req, res) => {
     }
 
     const newAchievements = buildAchievements(user);
-    if (newAchievements.length > 0) user.achievements.push(...newAchievements);
+
+    if (newAchievements.length > 0) {
+      user.achievements.push(...newAchievements);
+    }
 
     await user.save();
 
@@ -260,7 +357,11 @@ app.post("/api/progress/update", async (req, res) => {
     });
   } catch (error) {
     console.log("PROGRESS UPDATE ERROR:", error);
-    return res.status(500).json({ message: "Progress update failed.", details: error.message });
+
+    return res.status(500).json({
+      message: "Progress update failed.",
+      details: error.message,
+    });
   }
 });
 
@@ -272,7 +373,10 @@ app.get("/api/students", async (req, res) => {
 
     return res.json({ students });
   } catch (error) {
-    return res.status(500).json({ message: "Failed to fetch students.", details: error.message });
+    return res.status(500).json({
+      message: "Failed to fetch students.",
+      details: error.message,
+    });
   }
 });
 
@@ -283,11 +387,18 @@ app.get("/api/students/:email", async (req, res) => {
       role: "student",
     }).select("-password");
 
-    if (!student) return res.status(404).json({ message: "Student not found." });
+    if (!student) {
+      return res.status(404).json({
+        message: "Student not found.",
+      });
+    }
 
     return res.json({ student });
   } catch (error) {
-    return res.status(500).json({ message: "Failed to fetch student.", details: error.message });
+    return res.status(500).json({
+      message: "Failed to fetch student.",
+      details: error.message,
+    });
   }
 });
 
@@ -296,11 +407,15 @@ app.post("/api/ai/chat", async (req, res) => {
     const { message } = req.body;
 
     if (!message || !message.trim()) {
-      return res.status(400).json({ error: "Message is required." });
+      return res.status(400).json({
+        error: "Message is required.",
+      });
     }
 
     if (!GROQ_API_KEY) {
-      return res.status(500).json({ error: "Groq API key is missing." });
+      return res.status(500).json({
+        error: "Groq API key is missing.",
+      });
     }
 
     const completion = await groq.chat.completions.create({
@@ -309,12 +424,15 @@ app.post("/api/ai/chat", async (req, res) => {
         {
           role: "system",
           content:
-            "You are READSMART Chatbot, a helpful academic assistant for Senior High School STEM students. Answer clearly, naturally, and specifically. Keep answers concise but useful.",
+            "You are READSMART Chatbot, a helpful academic assistant for Senior High School STEM students. Answer clearly, naturally, and specifically. Keep answers concise but useful. Help with STEM, reading comprehension, vocabulary, summaries, essays, and study questions.",
         },
-        { role: "user", content: message },
+        {
+          role: "user",
+          content: message,
+        },
       ],
       temperature: 0.7,
-      max_tokens: 350,
+      max_tokens: 500,
     });
 
     return res.json({
@@ -323,7 +441,11 @@ app.post("/api/ai/chat", async (req, res) => {
     });
   } catch (error) {
     console.log("GROQ CHAT ERROR:", error);
-    return res.status(500).json({ error: "Groq chat failed.", details: error.message });
+
+    return res.status(500).json({
+      error: "Groq chat failed.",
+      details: error.message,
+    });
   }
 });
 
@@ -341,31 +463,55 @@ const extractArticleFromUrl = async (url) => {
   $("script, style, nav, footer, header, aside, noscript").remove();
 
   const title =
+    $("meta[property='og:title']").attr("content") ||
     $("title").first().text().trim() ||
     $("h1").first().text().trim() ||
     "Article from URL";
 
-  const articleText = $("p")
+  const description =
+    $("meta[name='description']").attr("content") ||
+    $("meta[property='og:description']").attr("content") ||
+    "";
+
+  const siteName =
+    $("meta[property='og:site_name']").attr("content") ||
+    new URL(url).hostname.replace("www.", "");
+
+  const paragraphs = $("p")
     .map((i, el) => $(el).text())
     .get()
+    .filter((paragraph) => paragraph.trim().length > 40);
+
+  const articleText = paragraphs
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();
 
   return {
     title,
+    description,
+    siteName,
+    sourceUrl: url,
     articleText,
   };
 };
 
-const summarizeWithGroq = async (articleText, sourceType, title = "") => {
+const summarizeWithGroq = async ({
+  articleText,
+  sourceType,
+  title = "",
+  description = "",
+  siteName = "",
+  sourceUrl = "",
+}) => {
   if (!articleText || articleText.trim().length < 50) {
     throw new Error(
       "No readable content found. Try another link, another PDF, or paste the article text manually."
     );
   }
 
-  const safeText = articleText.slice(0, 12000);
+  const safeText = articleText.slice(0, 14000);
+  const estimatedReadingTime = Math.max(1, Math.ceil(articleText.split(/\s+/).length / 200));
 
   const completion = await groq.chat.completions.create({
     model: GROQ_MODEL,
@@ -373,34 +519,84 @@ const summarizeWithGroq = async (articleText, sourceType, title = "") => {
       {
         role: "system",
         content:
-          "You are READSMART AI Academic Summary Assistant. Explain articles clearly for Senior High School STEM students.",
+          "You are READSMART AI Academic Research Assistant. Produce professional, structured, student-friendly academic article explanations for Senior High School STEM students. Do not invent citations. Use only the provided article text and source metadata. If facts, numbers, dates, or names are not present, say 'Not specified in the provided article.'",
       },
       {
         role: "user",
-        content: `Analyze this learning material.
+        content: `Analyze this learning material professionally.
 
+SOURCE METADATA:
 Source Type: ${sourceType}
-Title: ${title || "Not provided"}
+Article Title: ${title || "Not specified"}
+Website/Publisher: ${siteName || "Not specified"}
+Source URL: ${sourceUrl || "Not provided"}
+Description: ${description || "Not specified"}
+Estimated Reading Time: ${estimatedReadingTime} minute(s)
 
-Provide:
-1. Short Summary
-2. Student-Friendly Explanation
-3. Main Idea
-4. Important Details
-5. Important Vocabulary with simple meanings
-6. Reading Difficulty
-7. Study Notes
-8. One Quiz Question with Answer
+REQUIRED OUTPUT FORMAT:
 
-Content:
+ARTICLE INFORMATION
+- Title:
+- Source/Publisher:
+- Source Type:
+- Reference URL:
+- Estimated Reading Time:
+- Suggested Subject Area:
+- Difficulty Level:
+
+EXECUTIVE SUMMARY
+Write a polished 150–200 word summary.
+
+DETAILED ARTICLE EXPLANATION
+Explain the article clearly and professionally. Expand the important ideas for a student.
+
+MAIN IDEA
+State the central idea in 1–2 sentences.
+
+IMPORTANT INFORMATION
+List the most important facts, findings, dates, people, concepts, causes, effects, or processes found in the article.
+
+KEY CONCEPTS
+List and explain the key concepts.
+
+STEM RELEVANCE
+Explain how the article connects to Science, Technology, Engineering, or Mathematics.
+
+REAL-WORLD APPLICATIONS
+Explain how the topic is used or observed in real life.
+
+CRITICAL ANALYSIS
+- Strengths of the article:
+- Limitations or missing information:
+- Future implications:
+
+IMPORTANT VOCABULARY
+Provide important words from the article with simple meanings and example usage.
+
+STUDY NOTES
+Create short study notes that a student can review before a quiz.
+
+DISCUSSION QUESTIONS
+Give 3 discussion questions.
+
+QUIZ
+Give 3 quiz questions with answers.
+
+REFERENCES
+Only include the given source URL and publisher if provided. Do not invent fake references.
+
+ARTICLE CONTENT:
 ${safeText}`,
       },
     ],
-    temperature: 0.5,
-    max_tokens: 1200,
+    temperature: 0.45,
+    max_tokens: 1800,
   });
 
-  return completion.choices[0].message.content;
+  return {
+    summary: completion.choices[0].message.content,
+    estimatedReadingTime,
+  };
 };
 
 app.post("/api/ai/summary", upload.single("pdf"), async (req, res) => {
@@ -408,40 +604,58 @@ app.post("/api/ai/summary", upload.single("pdf"), async (req, res) => {
     const { text, url } = req.body;
 
     let articleText = "";
-    let sourceType = "Text";
-    let title = "";
+    let sourceType = "Pasted Text";
+    let title = "Pasted Article Text";
+    let description = "";
+    let siteName = "READSMART User Input";
+    let sourceUrl = "";
 
     if (req.file) {
       sourceType = "PDF Upload";
       title = req.file.originalname || "Uploaded PDF";
+      siteName = "Uploaded Document";
 
       const pdfData = await pdfParse(req.file.buffer);
       articleText = pdfData.text || "";
     } else if (url && url.trim()) {
       sourceType = "Article URL";
+      sourceUrl = url.trim();
 
-      const extracted = await extractArticleFromUrl(url.trim());
+      const extracted = await extractArticleFromUrl(sourceUrl);
+
       title = extracted.title;
+      description = extracted.description;
+      siteName = extracted.siteName;
       articleText = extracted.articleText;
     } else if (text && text.trim()) {
       sourceType = "Pasted Text";
-      title = "Pasted Article Text";
       articleText = text.trim();
     }
 
     if (!articleText || articleText.trim().length < 50) {
       return res.status(400).json({
         error:
-          "No readable article content found. Paste article text, upload a readable PDF, or use another article URL.",
+          "No readable article content found. Paste article text, upload a readable text-based PDF, or use another article URL.",
       });
     }
 
-    const summary = await summarizeWithGroq(articleText, sourceType, title);
+    const aiResult = await summarizeWithGroq({
+      articleText,
+      sourceType,
+      title,
+      description,
+      siteName,
+      sourceUrl,
+    });
 
     return res.json({
-      summary,
+      summary: aiResult.summary,
       title,
       sourceType,
+      siteName,
+      sourceUrl,
+      description,
+      estimatedReadingTime: aiResult.estimatedReadingTime,
       extractedLength: articleText.length,
       preview: articleText.slice(0, 500),
       mode: "groq-llama",
