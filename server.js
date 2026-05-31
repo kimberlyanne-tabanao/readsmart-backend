@@ -1,5 +1,7 @@
 require("dotenv").config();
 
+const axios = require("axios");
+const cheerio = require("cheerio");
 const express = require("express");
 const cors = require("cors");
 const Groq = require("groq-sdk");
@@ -248,124 +250,86 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/ai/summary", async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const { text, url } = req.body;
 
-    if (!email || !password) {
+    let articleText = text || "";
+
+    if (url && url.trim()) {
+      const page = await axios.get(url.trim(), {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        },
+      });
+
+      const $ = cheerio.load(page.data);
+
+      $("script").remove();
+      $("style").remove();
+      $("nav").remove();
+      $("header").remove();
+      $("footer").remove();
+      $("aside").remove();
+
+      articleText = $("p")
+        .map((i, el) => $(el).text())
+        .get()
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    if (!articleText || articleText.length < 50) {
       return res.status(400).json({
-        message: "Email and password are required.",
+        error:
+          "Unable to extract article text. Try another article link or paste the article manually.",
       });
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    const completion = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: `
+You are READSMART Academic Assistant.
 
-    const user = await User.findOne({ email: cleanEmail });
+When given an article, provide:
 
-    if (!user) {
-      return res.status(401).json({
-        message: "Invalid email or password.",
-      });
-    }
+1. Article Title (if identifiable)
+2. Short Summary
+3. Student-Friendly Explanation
+4. Main Idea
+5. Important Details
+6. Key Vocabulary and Meanings
+7. Reading Difficulty
+8. Study Notes
+9. One Quiz Question and Answer
 
-    if (role && user.role !== role) {
-      return res.status(403).json({
-        message: "Invalid role for this account.",
-      });
-    }
+Explain clearly for Senior High School STEM students.
+`,
+        },
+        {
+          role: "user",
+          content: articleText,
+        },
+      ],
+      temperature: 0.5,
+      max_tokens: 1200,
+    });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.status(401).json({
-        message: "Invalid email or password.",
-      });
-    }
-
-    return res.json({
-      message: "Login successful.",
-      token: generateToken(user),
-      user: sanitizeUser(user),
+    res.json({
+      summary: completion.choices[0].message.content,
+      mode: "groq-llama",
+      extractedLength: articleText.length,
     });
   } catch (error) {
-    console.log("LOGIN ERROR:", error);
+    console.log("SUMMARY ERROR:", error);
 
-    return res.status(500).json({
-      message: "Login failed.",
-      details: error.message,
-    });
-  }
-});
-
-app.post("/api/progress/update", async (req, res) => {
-  try {
-    const { email, activityType, score = 0, historyItem } = req.body;
-
-    if (!email || !activityType) {
-      return res.status(400).json({
-        message: "Email and activity type are required.",
-      });
-    }
-
-    const cleanEmail = email.trim().toLowerCase();
-
-    const user = await User.findOne({ email: cleanEmail });
-
-    if (!user) {
-      return res.status(404).json({
-        message: "Student not found.",
-      });
-    }
-
-    if (activityType === "reading") {
-      user.scores.reading += 1;
-      user.xp += 20;
-    }
-
-    if (activityType === "summary") {
-      user.scores.summaries += 1;
-      user.xp += 15;
-    }
-
-    if (activityType === "quiz") {
-      user.scores.quizzes += Number(score) || 0;
-      user.xp += 30;
-    }
-
-    if (activityType === "writing") {
-      user.scores.writing += Number(score) || 1;
-      user.xp += 25;
-    }
-
-    user.level = Math.floor(user.xp / 100) + 1;
-
-    if (historyItem) {
-      user.history.unshift({
-        title: historyItem.title || "Learning Activity",
-        type: historyItem.type || activityType,
-        summary: historyItem.summary || "",
-        link: historyItem.link || "",
-      });
-    }
-
-    const newAchievements = buildAchievements(user);
-
-    if (newAchievements.length > 0) {
-      user.achievements.push(...newAchievements);
-    }
-
-    await user.save();
-
-    return res.json({
-      message: "Progress updated successfully.",
-      user: sanitizeUser(user),
-      newAchievements,
-    });
-  } catch (error) {
-    console.log("PROGRESS UPDATE ERROR:", error);
-
-    return res.status(500).json({
-      message: "Progress update failed.",
+    res.status(500).json({
+      error: "Failed to summarize article.",
       details: error.message,
     });
   }
