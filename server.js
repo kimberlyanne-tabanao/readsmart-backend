@@ -579,8 +579,49 @@ Create short study notes that a student can review before a quiz.
 DISCUSSION QUESTIONS
 Give 3 discussion questions.
 
-QUIZ
-Give 3 quiz questions with answers.
+COMPREHENSION QUIZ
+
+Generate 5 multiple-choice comprehension questions.
+
+IMPORTANT RULES:
+- Do NOT reveal the correct answer.
+- Do NOT include "Answer:"
+- Do NOT include "Correct Answer:"
+- Each question must have choices A, B, C, and D.
+- Questions must be based on the article.
+- Questions should test reading comprehension and critical thinking.
+
+Format:
+
+Question 1:
+A.
+B.
+C.
+D.
+
+Question 2:
+A.
+B.
+C.
+D.
+
+Question 3:
+A.
+B.
+C.
+D.
+
+Question 4:
+A.
+B.
+C.
+D.
+
+Question 5:
+A.
+B.
+C.
+D.
 
 REFERENCES
 Only include the given source URL and publisher if provided. Do not invent fake references.
