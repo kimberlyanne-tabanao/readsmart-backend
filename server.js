@@ -53,6 +53,20 @@ const userSchema = new mongoose.Schema(
     },
     password: { type: String, required: true },
     role: { type: String, enum: ["student", "admin"], default: "student" },
+    lastLogin: {
+  type: Date,
+  default: null,
+},
+
+loginCount: {
+  type: Number,
+  default: 0,
+},
+
+registeredDevice: {
+  type: String,
+  default: "",
+},
 
     xp: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
@@ -271,12 +285,18 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
+    
 
     if (!isMatch) {
       return res.status(401).json({
         message: "Invalid email or password.",
       });
     }
+
+    user.lastLogin = new Date();
+user.loginCount = (user.loginCount || 0) + 1;
+
+await user.save();
 
     return res.json({
       message: "Login successful.",
@@ -711,7 +731,22 @@ app.post("/api/ai/summary", upload.single("pdf"), async (req, res) => {
     });
   }
 });
+app.get("/api/admin/students", async (req, res) => {
+  try {
+    const students = await User.find({
+      role: "student",
+    })
+      .select("-password")
+      .sort({ lastLogin: -1 });
 
+    res.json(students);
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch students",
+      error: error.message,
+    });
+  }
+});
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`READSMART backend running at http://0.0.0.0:${PORT}`);
 });
