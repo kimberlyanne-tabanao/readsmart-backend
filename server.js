@@ -747,6 +747,46 @@ app.get("/api/admin/students", async (req, res) => {
     });
   }
 });
+app.get("/api/seed-admin", async (req, res) => {
+  try {
+    const existingAdmin = await User.findOne({
+      email: "admin@readsmart.com",
+    });
+
+    if (existingAdmin) {
+      return res.json({
+        message: "Admin already exists.",
+        email: "admin@readsmart.com",
+        password: "admin123",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash("admin123", 10);
+
+    const admin = await User.create({
+      fullName: "READSMART Administrator",
+      age: "25",
+      strand: "Administrator",
+      email: "admin@readsmart.com",
+      password: hashedPassword,
+      role: "admin",
+      xp: 0,
+      level: 1,
+    });
+
+    res.json({
+      message: "Admin account created successfully.",
+      email: "admin@readsmart.com",
+      password: "admin123",
+      admin: sanitizeUser(admin),
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to create admin account.",
+      error: error.message,
+    });
+  }
+});
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`READSMART backend running at http://0.0.0.0:${PORT}`);
 });
