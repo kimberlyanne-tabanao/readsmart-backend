@@ -787,6 +787,32 @@ app.get("/api/seed-admin", async (req, res) => {
     });
   }
 });
+app.delete("/api/admin/students/:email", async (req, res) => {
+  try {
+    const email = req.params.email.trim().toLowerCase();
+
+    const deletedStudent = await User.findOneAndDelete({
+      email,
+      role: "student",
+    });
+
+    if (!deletedStudent) {
+      return res.status(404).json({
+        message: "Student not found.",
+      });
+    }
+
+    res.json({
+      message: "Student deleted successfully.",
+      student: sanitizeUser(deletedStudent),
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to delete student.",
+      error: error.message,
+    });
+  }
+});
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`READSMART backend running at http://0.0.0.0:${PORT}`);
 });
